@@ -1,16 +1,13 @@
-/*
-
-Module
-    Section
-
-*/
-
 #include "wasm/wasm.h"
 
+#include <assert.h>
 #include <stdbool.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+void wasm_free_module(wasm_module *module) { free(module); }
 
 bool wasm_load_header(FILE *file, wasm_module_header *header) {
   size_t header_size = sizeof(wasm_module_header);
@@ -31,12 +28,14 @@ bool wasm_load_header(FILE *file, wasm_module_header *header) {
   }
 }
 
-// WASM allows a variable number of "custom sections" between the other
-// sections, e.g. for debugging info.
-void wasm_skip_customsecs() {}
+
+bool wasm_load_module_sections(FILE *file, wasm_module *module) {
+  assert(file);
+  assert(module);
+}
 
 wasm_module *wasm_load_module_from_file(const char *file_name) {
-  FILE *file = fopen(file_name, "r");
+  FILE *file = fopen(file_name, "rb");
 
   // Failed to open file.
   if (file == NULL) {
@@ -50,8 +49,13 @@ wasm_module *wasm_load_module_from_file(const char *file_name) {
     return NULL;
   }
 
-  // Return result.
+  // Load sections.
   wasm_module *module = (wasm_module *)malloc(sizeof(wasm_module));
-  module->header = header;
-  return module;
+
+  if (wasm_load_module_sections(file, module)) {
+    return module;
+  } else {
+    wasm_free_module(module);
+    return NULL;
+  }
 }
