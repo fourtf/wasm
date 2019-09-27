@@ -5,16 +5,14 @@
 #include <stdlib.h>
 
 // An abstract device that can read and seek.
-struct _wasm_reader_t;
-struct _wasm_reader_t {
+typedef struct _wasm_reader_t {
   void *device;
   size_t size;
 
   // Returns true on success, false on failure.
   // Buffer can NULL, then it is considered a seek.
   _Bool (*read)(struct _wasm_reader_t *reader, void *buffer, size_t amount);
-};
-typedef struct _wasm_reader_t wasm_reader;
+} wasm_reader;
 
 // File reader. You will have to close the file yourself.
 void wasm_init_file_reader(wasm_reader *reader, FILE *file);
