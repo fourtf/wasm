@@ -16,7 +16,8 @@ typedef struct _wasm_reader_t {
 
 // File reader. You will have to close the file yourself.
 void wasm_init_file_reader(wasm_reader *reader, FILE *file);
-void wasm_init_memory_reader(wasm_reader *reader, void *data, size_t size);
+void wasm_init_memory_reader(wasm_reader *reader, const void *data,
+                             size_t size);
 
 // Returns true on success, false on failure.
 bool wasm_read(wasm_reader *, void *buffer, size_t amount);

@@ -1,6 +1,6 @@
 #include "wasm/wasm_reader.h"
 
-#include "wasm/wasm_private.h"
+#include "wasm/wasm_common.h"
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -22,7 +22,7 @@ bool wasm_memory_reader_read(wasm_reader *reader, void *buffer, size_t amount) {
     if (buffer != NULL) {
       memcpy(buffer, reader->device, amount);
     }
-    reader->device -= amount;
+    reader->device += amount;
     reader->size -= amount;
     return true;
   }
@@ -34,8 +34,9 @@ void wasm_init_file_reader(wasm_reader *reader, FILE *file) {
   reader->read = &wasm_file_reader_read;
 }
 
-void wasm_init_memory_reader(wasm_reader *reader, void *data, size_t size) {
-  reader->device = data;
+void wasm_init_memory_reader(wasm_reader *reader, const void *data,
+                             size_t size) {
+  reader->device = (void *)data;
   reader->size = size;
   reader->read = &wasm_memory_reader_read;
 }

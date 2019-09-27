@@ -1,5 +1,7 @@
 #include "wasm/wasm.h"
 
+#include "wasm/wasm_common.h"
+#include "wasm/wasm_helper.h"
 #include <assert.h>
 #include <stdbool.h>
 #include <stdint.h>
@@ -9,10 +11,13 @@
 
 void wasm_free_module(wasm_module *module) { free(module); }
 
-bool wasm_load_header(FILE *file, wasm_module_header *header) {
+bool wasm_load_header(wasm_reader *reader, wasm_module_header *header) {
   size_t header_size = sizeof(wasm_module_header);
-  if (fread(header, 1, header_size, file) != header_size) {
+
+  // Read header.
+  if (!wasm_read(reader, header, header_size)) {
     fprintf(stderr, "File too short.");
+    return false;
   }
 
   // Check magic number.
@@ -28,51 +33,30 @@ bool wasm_load_header(FILE *file, wasm_module_header *header) {
   }
 }
 
-// Int are encoded as LEB128 https://en.wikipedia.org/wiki/LEB128
-// XXX: handling fread errors?
-uint32_t wasm_read_leb_u32(FILE *file) {
-  assert(file);
-
-  uint32_t result = 0;
-  char c = 128;
-
-  // Here we check if the last bit is 1 (& 128).
-  // Per spec it has at most ceil(32 / 7) = 5 bytes.
-  for (int i = 0; c & 128 && i < 5; c++) {
-    fread(&c, 1, 1, file);
-    result = result * 128 + c & 127;
-  }
-
-  return result;
-}
-
-bool wasm_load_module_sections(FILE *file, wasm_module *module) {
-  assert(file);
+bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
+  assert(reader);
   assert(module);
 
   char section_type;
   char last_section = 0;
 
-  while (feof(file) == 0) {
-    if (fread(&section_type, 1, 1, file) != 1) {
-      // error
-      return false;
-    }
+  while (wasm_read(reader, &section_type, 1)) {
+    uint32_t length = wasm_read_leb_u32(reader);
 
-    uint32_t length = wasm_read_leb_u32(file);
-
-    // There can be an unlimited number number of custom sections (id=0)
-    // inbetween other sections. All other sections must be in order.
+    // All sections except for the custom section (id=0) must be in order.
     if (section_type != 0 && section_type <= last_section) {
       fprintf(stderr, "Invalid order of sections.");
       return false;
     }
 
     switch (section_type) {
+    // There can be an unlimited number of custom sections (id=0) inbetween
+    // other sections so we just skip them.
     case 0: // custom
     {
-      static_assert(sizeof(long) > sizeof(uint32_t), "xD");
-      // SEEK length
+      if (!wasm_seek(reader, length)) {
+        return false;
+      }
     } break;
     case 1:  // type
     case 2:  // import
@@ -87,8 +71,28 @@ bool wasm_load_module_sections(FILE *file, wasm_module *module) {
     case 11: // data
         ;
 
-    default:;
+    default:
+      fprintf(stderr, "Invalid section found: %d", section_type);
+      break;
     }
+  }
+}
+
+wasm_module *wasm_load_module(wasm_reader *reader) {
+  // Read header.
+  wasm_module_header header;
+  if (!wasm_load_header(reader, &header)) {
+    return NULL;
+  }
+
+  // Load sections.
+  wasm_module *module = wasm_alloc(wasm_module);
+
+  if (wasm_load_module_sections(reader, module)) {
+    return module;
+  } else {
+    wasm_free_module(module);
+    return NULL;
   }
 }
 
@@ -97,23 +101,12 @@ wasm_module *wasm_load_module_from_file(const char *file_name) {
 
   // Failed to open file.
   if (file == NULL) {
-    fprintf(stderr, "Failed to open file.");
+    perror("File error");
     return NULL;
   }
 
-  // Read header.
-  wasm_module_header header;
-  if (!wasm_load_header(file, &header)) {
-    return NULL;
-  }
-
-  // Load sections.
-  wasm_module *module = (wasm_module *)malloc(sizeof(wasm_module));
-
-  if (wasm_load_module_sections(file, module)) {
-    return module;
-  } else {
-    wasm_free_module(module);
-    return NULL;
-  }
+  // Wrap file in reader.
+  wasm_reader reader;
+  wasm_init_file_reader(&reader, file);
+  return wasm_load_module(&reader);
 }

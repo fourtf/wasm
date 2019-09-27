@@ -1,5 +1,8 @@
 #pragma once
 
+#include "wasm/wasm_reader.h"
+#include <stdint.h>
+
 // The header of a wasm module.
 typedef struct {
   char magic_number[4];
@@ -13,7 +16,6 @@ typedef struct {
 
 // A wasm program is called a "module". It contains sections similar to how an
 // elf/PE executable.
+wasm_module *wasm_load_module(wasm_reader *reader);
 wasm_module *wasm_load_module_from_file(const char *file_name);
 void wasm_free_module(wasm_module *module);
-
-void wasm_run_tests();

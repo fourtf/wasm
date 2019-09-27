@@ -9,6 +9,7 @@ option(TESTING "build in test mode" 0)
 add_executable(wasm
     src/wasm/wasm.c
     src/wasm/wasm_reader.c
+    src/wasm/wasm_helper.c
 )
 
 # different main()s for testing and release 
