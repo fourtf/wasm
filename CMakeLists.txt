@@ -8,11 +8,13 @@ option(TESTING "build in test mode" 0)
 
 add_executable(wasm
     src/wasm/wasm.c
+    src/wasm/wasm_reader.c
 )
 
 # different main()s for testing and release 
 if (TESTING) 
     target_sources(wasm PUBLIC tests/tests.c)
+    include_directories("tests")
 else()
     target_sources(wasm PUBLIC src/main.c)
 endif()

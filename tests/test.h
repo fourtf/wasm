@@ -4,6 +4,7 @@
 #include <signal.h>
 #include <stdbool.h>
 #include <stdio.h>
+#include <string.h>
 
 // Recovery from segfault and other errors.
 jmp_buf failure_buffer;
@@ -59,6 +60,14 @@ void setup_tests() {
 #define TEST_IMPL(a, b) test(&a, b)
 #define TEST(func) TEST_IMPL(func, #func)
 
+// Checks if two values are equal by testing with `==`.
 #define MUST_EQUAL(a, b)                                                       \
-  printf("%s: %s", __func__,                                                   \
-         (a == b ? "equal" : (all_success = false, "not equal")))
+  printf("%s: %s\n", __func__,                                                 \
+         (a == b ? "pass" : (all_success = false, "not equal")))
+
+// Takes two pointers and compares `length` bytes.
+#define MUST_EQUAL_MEM(a, b, length)                                           \
+  printf("%s: %s\n", __func__,                                                 \
+         (memcmp(a, b, length) == 0                                            \
+              ? "pass"                                                         \
+              : (all_success = false, "memory not equal")))
