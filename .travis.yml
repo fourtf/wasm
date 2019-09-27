@@ -1,0 +1,14 @@
+matrix:
+  include:
+    - os: linux
+      name: Linux Build (Bionic)
+      dist: bionic
+      language: c
+      script:
+        - mkdir build
+        - cd build
+        - cmake -DTESTING=1 ..
+        - make -j$(nproc)
+        - ./wasm
+      compiler: gcc
+
