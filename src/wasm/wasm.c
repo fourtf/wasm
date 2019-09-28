@@ -108,5 +108,6 @@ wasm_module *wasm_load_module_from_file(const char *file_name) {
   // Wrap file in reader.
   wasm_reader reader;
   wasm_init_file_reader(&reader, file);
+  fclose(file);
   return wasm_load_module(&reader);
 }
