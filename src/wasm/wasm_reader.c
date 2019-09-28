@@ -1,6 +1,7 @@
 #include "wasm/wasm_reader.h"
 
 #include "wasm/wasm_common.h"
+#include <limits.h>
 #include <stdbool.h>
 #include <stdio.h>
 #include <string.h>
@@ -8,10 +9,15 @@
 bool wasm_file_reader_read(wasm_reader *reader, void *buffer, size_t amount) {
   if (buffer) {
     // Read.
-    return fread(buffer, 1, amount, (FILE *)reader->device) == amount;
+    return 1 == fread(buffer, amount, 1, (FILE *)reader->device);
   } else {
     // Seek.
-    return fseek((FILE *)reader->device, amount, SEEK_CUR) == amount;
+    if (amount > INT_MAX) {
+      fprintf(stderr, "wasm_file_reader_read: amount > INT_MAX\n");
+      return false;
+    } else {
+      return fseek((FILE *)reader->device, amount, SEEK_CUR) == 0;
+    }
   }
 }
 
@@ -30,7 +36,7 @@ bool wasm_memory_reader_read(wasm_reader *reader, void *buffer, size_t amount) {
 
 void wasm_init_file_reader(wasm_reader *reader, FILE *file) {
   reader->device = file;
-  reader->size = -1; // Size is ignored in file reader.
+  reader->size = 0; // Size is ignored in file reader.
   reader->read = &wasm_file_reader_read;
 }
 

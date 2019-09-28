@@ -6,6 +6,8 @@
 #include <stdio.h>
 #include <string.h>
 
+#include "wasm/wasm_common.h"
+
 // Recovery from segfault and other errors.
 jmp_buf failure_buffer;
 bool in_test = false;
@@ -38,6 +40,7 @@ void handle_signal(int signal) {
 
 // Runs a test and recovers from segfaults.
 void test(void (*test)(), const char *name) {
+  size_t alloc_count = wasm_alloc_count();
   setjmp(failure_buffer);
 
   if (in_test) {
@@ -49,6 +52,14 @@ void test(void (*test)(), const char *name) {
   }
 
   in_test = false;
+
+  // Check if there is any objects that didn't get destroyed.
+  size_t new_alloc_count = wasm_alloc_count();
+  if (alloc_count != new_alloc_count) {
+    printf("%lld element(s) not deallocated in %s",
+           (signed long long)new_alloc_count - (signed long long)alloc_count,
+           name);
+  }
 }
 
 void setup_tests() {
@@ -63,7 +74,12 @@ void setup_tests() {
 // Checks if two values are equal by testing with `==`.
 #define MUST_EQUAL(a, b)                                                       \
   printf("%s: %s\n", __func__,                                                 \
-         (a == b ? "pass" : (all_success = false, "not equal")))
+         (a == b ? "pass" : (all_success = false, "must equal")))
+
+// Checks if two values are equal by testing with `!=`.
+#define MUST_NOT_EQUAL(a, b)                                                   \
+  printf("%s: %s\n", __func__,                                                 \
+         (a != b ? "pass" : (all_success = false, "must not equal")))
 
 // Takes two pointers and compares `length` bytes.
 #define MUST_EQUAL_MEM(a, b, length)                                           \

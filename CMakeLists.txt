@@ -10,6 +10,7 @@ add_executable(wasm
     src/wasm/wasm.c
     src/wasm/wasm_reader.c
     src/wasm/wasm_helper.c
+    src/wasm/wasm_common.c
 )
 
 # different main()s for testing and release 
@@ -21,3 +22,8 @@ else()
 endif()
 
 include_directories("src")
+
+# add compiler specific options
+if (CMAKE_COMPILER_IS_GNUCC)
+    target_compile_options(wasm PRIVATE "-Wall" "-Wextra" "-Werror")
+endif()

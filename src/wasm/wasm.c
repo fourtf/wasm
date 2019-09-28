@@ -9,28 +9,30 @@
 #include <stdlib.h>
 #include <string.h>
 
-void wasm_free_module(wasm_module *module) { free(module); }
+void wasm_free_module(wasm_module *module) { wasm_free(module); }
 
 bool wasm_load_header(wasm_reader *reader, wasm_module_header *header) {
   size_t header_size = sizeof(wasm_module_header);
 
   // Read header.
   if (!wasm_read(reader, header, header_size)) {
-    fprintf(stderr, "File too short.");
+    fprintf(stderr, "Error reading header.\n");
     return false;
   }
 
   // Check magic number.
   if (memcmp(&header->magic_number, "\0asm", 4) != 0) {
-    fprintf(stderr, "Magic number is invalid.");
+    fprintf(stderr, "Magic number is invalid.\n");
     return false;
   }
 
   // Check version.
   if (memcmp(&header->version, "\x01\0\0\0", 4) != 0) {
-    fprintf(stderr, "Magic number is invalid.");
+    fprintf(stderr, "Magic number is invalid.\n");
     return false;
   }
+
+  return true;
 }
 
 bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
@@ -38,13 +40,15 @@ bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
   assert(module);
 
   char section_type;
-  char last_section = 0;
+  char last_section_type =
+      0; // Last section that we parsed (except custom section)
 
+  // Keep reading sections until the reader ends.
   while (wasm_read(reader, &section_type, 1)) {
     uint32_t length = wasm_read_leb_u32(reader);
 
     // All sections except for the custom section (id=0) must be in order.
-    if (section_type != 0 && section_type <= last_section) {
+    if (section_type != 0 && section_type <= last_section_type) {
       fprintf(stderr, "Invalid order of sections.");
       return false;
     }
@@ -55,6 +59,7 @@ bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
     case 0: // custom
     {
       if (!wasm_seek(reader, length)) {
+        fprintf(stderr, "Error skipping custom section.\n");
         return false;
       }
     } break;
@@ -69,19 +74,22 @@ bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
     case 9:  // elem
     case 10: // code
     case 11: // data
-        ;
 
     default:
-      fprintf(stderr, "Invalid section found: %d", section_type);
+      fprintf(stderr, "Invalid section found: %u\n", section_type);
       break;
     }
+
+    last_section_type = section_type;
   }
+  return true;
 }
 
 wasm_module *wasm_load_module(wasm_reader *reader) {
   // Read header.
   wasm_module_header header;
   if (!wasm_load_header(reader, &header)) {
+    puts("xd");
     return NULL;
   }
 
@@ -108,6 +116,8 @@ wasm_module *wasm_load_module_from_file(const char *file_name) {
   // Wrap file in reader.
   wasm_reader reader;
   wasm_init_file_reader(&reader, file);
+
+  wasm_module *result = wasm_load_module(&reader);
   fclose(file);
-  return wasm_load_module(&reader);
+  return result;
 }
