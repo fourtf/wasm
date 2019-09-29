@@ -9,8 +9,8 @@ option(TESTING "build in test mode" 0)
 add_executable(wasm
     src/wasm/wasm.c
     src/wasm/wasm_reader.c
-    src/wasm/wasm_helper.c
     src/wasm/wasm_common.c
+    src/wasm/wasm_vec.c
 )
 
 # different main()s for testing and release 
@@ -25,5 +25,5 @@ include_directories("src")
 
 # add compiler specific options
 if (CMAKE_COMPILER_IS_GNUCC)
-    target_compile_options(wasm PRIVATE "-Wall" "-Wextra" "-Werror")
+    target_compile_options(wasm PRIVATE "-Wall" "-Wextra" "-Werror=return-type")
 endif()

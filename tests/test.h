@@ -8,6 +8,15 @@
 
 #include "wasm/wasm_common.h"
 
+// Copied from here: https://stackoverflow.com/a/3219471
+#define ANSI_COLOR_RED "\x1b[31m"
+#define ANSI_COLOR_GREEN "\x1b[32m"
+#define ANSI_COLOR_YELLOW "\x1b[33m"
+#define ANSI_COLOR_BLUE "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN "\x1b[36m"
+#define ANSI_COLOR_RESET "\x1b[0m"
+
 // Recovery from segfault and other errors.
 jmp_buf failure_buffer;
 bool in_test = false;
@@ -44,7 +53,8 @@ void test(void (*test)(), const char *name) {
   setjmp(failure_buffer);
 
   if (in_test) {
-    printf("%s signal in '%s'.\n", signal_name, name);
+    printf(ANSI_COLOR_BLUE "%s signal in '%s'.\n" ANSI_COLOR_RESET, signal_name,
+           name);
     all_success = false;
   } else {
     in_test = true;
@@ -56,7 +66,8 @@ void test(void (*test)(), const char *name) {
   // Check if there is any objects that didn't get destroyed.
   size_t new_alloc_count = wasm_alloc_count();
   if (alloc_count != new_alloc_count) {
-    printf("%lld element(s) not deallocated in %s",
+    printf(ANSI_COLOR_BLUE
+           "%lld element(s) not deallocated in %s" ANSI_COLOR_RESET,
            (signed long long)new_alloc_count - (signed long long)alloc_count,
            name);
   }
@@ -71,19 +82,19 @@ void setup_tests() {
 #define TEST_IMPL(a, b) test(&a, b)
 #define TEST(func) TEST_IMPL(func, #func)
 
-// Checks if two values are equal by testing with `==`.
-#define MUST_EQUAL(a, b)                                                       \
+#define SUCCESS ANSI_COLOR_GREEN "pass" ANSI_COLOR_RESET
+#define FAILURE(x) ANSI_COLOR_GREEN x ANSI_COLOR_RESET
+
+#define MUST(cond, fail)                                                       \
   printf("%s: %s\n", __func__,                                                 \
-         (a == b ? "pass" : (all_success = false, "must equal")))
+         (cond ? SUCCESS : (all_success = false, FAILURE(fail))))
+
+// Checks if two values are equal by testing with `==`.
+#define MUST_EQUAL(a, b) MUST(a == b, "must equal")
 
 // Checks if two values are equal by testing with `!=`.
-#define MUST_NOT_EQUAL(a, b)                                                   \
-  printf("%s: %s\n", __func__,                                                 \
-         (a != b ? "pass" : (all_success = false, "must not equal")))
+#define MUST_NOT_EQUAL(a, b) MUST(a != b, "must not equal")
 
 // Takes two pointers and compares `length` bytes.
 #define MUST_EQUAL_MEM(a, b, length)                                           \
-  printf("%s: %s\n", __func__,                                                 \
-         (memcmp(a, b, length) == 0                                            \
-              ? "pass"                                                         \
-              : (all_success = false, "memory not equal")))
+  MUST(memcmp(a, b, length) == 0, "memory not equal")

@@ -1,7 +1,6 @@
 #include "test.h"
 #include "wasm/wasm.h"
 #include "wasm/wasm_common.h"
-#include "wasm/wasm_helper.h"
 #include "wasm/wasm_reader.h"
 
 char abcd[] = {'a', 'b', 'c', 'd'};
@@ -79,11 +78,24 @@ void test_skip_custom_section() {
   wasm_free_module(module);
 }
 
+void test_vec() {
+  // Add tests for wasm_vec here :(
+}
+
 void test_emscripten_file_1() {
   wasm_module *module =
       wasm_load_module_from_file("../tests/files/emscripten_1/a.out.wasm");
 
   MUST_NOT_EQUAL(module, NULL);
+  if (module) {
+    MUST_EQUAL(wasm_vec_size(&module->function_types), 2);
+
+    // Already put those here for the future:
+    // MUST_EQUAL(wasm_vec_size(&module->functions), 2);
+    // MUST_EQUAL(wasm_vec_size(&module->globals), 1);
+    // MUST_EQUAL(wasm_vec_size(&module->exports), 2);
+  }
+
   wasm_free_module(module);
 }
 
@@ -99,7 +111,8 @@ int main(void) {
   TEST(test_file_reader);
   TEST(test_leb_u32);
   TEST(test_skip_custom_section);
-  // TEST(test_emscripten_file_1);
+  TEST(test_vec);
+  TEST(test_emscripten_file_1);
 
   if (all_success) {
     puts("\nAll tests passed PogChamp");
