@@ -83,7 +83,7 @@ void setup_tests() {
 #define TEST(func) TEST_IMPL(func, #func)
 
 #define SUCCESS ANSI_COLOR_GREEN "pass" ANSI_COLOR_RESET
-#define FAILURE(x) ANSI_COLOR_GREEN x ANSI_COLOR_RESET
+#define FAILURE(x) ANSI_COLOR_RED x ANSI_COLOR_RESET
 
 #define MUST(cond, fail)                                                       \
   printf("%s: %s\n", __func__,                                                 \
