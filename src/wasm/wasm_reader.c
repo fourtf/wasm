@@ -78,3 +78,126 @@ uint32_t wasm_read_leb_u32(wasm_reader *reader) {
 
   return result;
 }
+
+bool wasm_read_f32(wasm_reader *reader, float *out) {
+  char data[4];
+
+  if (!wasm_read(reader, data, 4)) {
+    return false;
+  }
+
+  if (!wasm_is_little_endian()) {
+    char swapped[4];
+    swapped[0] = data[3];
+    swapped[1] = data[2];
+    swapped[2] = data[1];
+    swapped[3] = data[0];
+    *out = *((float *)swapped);
+  } else {
+    *out = *((float *)data);
+  }
+
+  return true;
+}
+
+bool wasm_read_f64(wasm_reader *reader, double *out) {
+  char data[8];
+
+  if (!wasm_read(reader, data, 4)) {
+    return false;
+  }
+
+  if (!wasm_is_little_endian()) {
+    char swapped[8];
+    swapped[0] = data[7];
+    swapped[1] = data[6];
+    swapped[2] = data[5];
+    swapped[3] = data[4];
+    swapped[4] = data[3];
+    swapped[5] = data[2];
+    swapped[6] = data[1];
+    swapped[7] = data[0];
+    *out = *((double *)swapped);
+  } else {
+    *out = *((double *)data);
+  }
+
+  return true;
+}
+
+// XXX: This code has never been tested and is just assumed to be working.
+bool wasm_validate_utf8(char *str) {
+  while (*str) {
+    if ((*str & (1 << 7)) == 0) {
+      // 1 byte
+      str++;
+    } else if ((*str & (1 << 7 | 1 << 6 | 1 << 5)) == (1 << 7 | 1 << 6)) {
+      // 2 bytes
+      if (str[1] == '\0') {
+        return false;
+      }
+
+      if ((str[1] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      str += 2;
+    } else if ((*str & (1 << 7 | 1 << 6 | 1 << 5 | 1 << 4)) ==
+               (1 << 7 | 1 << 6 | 1 << 5)) {
+      // 3 bytes
+      if (str[1] == '\0' || str[2] == '\0') {
+        return false;
+      }
+
+      if ((str[1] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      if ((str[2] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      str += 3;
+    } else if ((*str & (1 << 7 | 1 << 6 | 1 << 5 | 1 << 4 | 1 << 3)) ==
+               (1 << 7 | 1 << 6 | 1 << 5 | 1 << 4)) {
+      // 4 bytes
+      if (str[1] == '\0' || str[2] == '\0' || str[3] == '\0') {
+        return false;
+      }
+      if ((str[1] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      if ((str[2] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      if ((str[3] & (1 << 7 | 1 << 6)) != (1 << 7)) {
+        return false;
+      }
+      str += 4;
+    } else {
+      puts("uffka");
+      return false;
+    }
+  }
+
+  return true;
+}
+
+bool wasm_read_string(wasm_reader *reader, char **out) {
+  uint32_t length = wasm_read_leb_u32(reader);
+  char *str = wasm_alloc_array(char, length + 1);
+
+  if (!wasm_read(reader, str, length)) {
+    wasm_free(str);
+    return false;
+  }
+
+  str[length] = '\0';
+
+  if (!wasm_validate_utf8(str)) {
+    fprintf(stderr,
+            "Looks like invalid utf8 but maybe the function is wrong.\n");
+    wasm_free(str);
+    return false;
+  }
+
+  *out = str;
+  return true;
+}

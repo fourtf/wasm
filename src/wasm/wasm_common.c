@@ -13,3 +13,8 @@ void wasm_free(void *obj) {
     free(obj);
   }
 }
+
+bool wasm_is_little_endian() {
+  unsigned int is_little_endian = 1;
+  return ((int8_t *)&is_little_endian)[0];
+}

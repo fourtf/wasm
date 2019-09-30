@@ -31,12 +31,32 @@ void wasm_release_function_type(wasm_function_type *type) {
   wasm_vec_deinit(&type->param_types);
 }
 
-void wasm_free_module(wasm_module *module) {
-  wasm_vec_for_each(&module->function_types,
-                    (void (*)(void *))(&wasm_release_function_type));
-  wasm_vec_deinit(&module->function_types);
+void wasm_init_global(wasm_global *global) {
+  wasm_vec_init(&global->initializer, wasm_global);
+}
 
-  wasm_free(module);
+void wasm_deinit_global(wasm_global *global) {
+  wasm_vec_deinit(&global->initializer);
+}
+
+void wasm_init_export(wasm_export *export) { export->name = NULL; }
+
+void wasm_deinit_export(wasm_export *export) { wasm_free(export->name); }
+
+void wasm_free_module(wasm_module *module) {
+  if (module) {
+    wasm_vec_for_each(&module->function_types,
+                      (void (*)(void *))(&wasm_release_function_type));
+    wasm_vec_deinit(&module->function_types);
+    wasm_vec_deinit(&module->funcs);
+    wasm_vec_for_each(&module->globals,
+                      (void (*)(void *))(&wasm_deinit_global));
+    wasm_vec_deinit(&module->globals);
+    wasm_vec_for_each(&module->exports, (void(*))(void *)(&wasm_deinit_export));
+    wasm_vec_deinit(&module->exports);
+
+    wasm_free(module);
+  }
 }
 
 bool wasm_load_header(wasm_reader *reader, wasm_module_header *header) {
@@ -61,6 +81,23 @@ bool wasm_load_header(wasm_reader *reader, wasm_module_header *header) {
   }
 
   return true;
+}
+
+bool wasm_parse_expr(wasm_reader *reader, wasm_vec *expr) {
+  while (1) {
+    unsigned char command;
+    if (!wasm_read(reader, &command, 1)) {
+      fprintf(stderr, "IO error while parsing expr.\n");
+    }
+
+    if (command == 0x0B) {
+      return true;
+    }
+
+    *((unsigned char *)wasm_vec_append(expr)) = command;
+  }
+
+  return false;
 }
 
 bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
@@ -153,12 +190,92 @@ bool wasm_load_module_sections(wasm_reader *reader, wasm_module *module) {
         }
       }
     } break;
+
+    // func section.
+    case 3: {
+      uint32_t func_count = wasm_read_leb_u32(reader);
+
+      for (size_t i = 0; i < func_count; i++) {
+        wasm_typeidx *func = wasm_vec_append(&module->funcs);
+        *func = wasm_read_leb_u32(reader);
+      }
+    } break;
+
+    // global section.
+    case 6: {
+      uint32_t global_count = wasm_read_leb_u32(reader);
+
+      for (size_t i = 0; i < global_count; i++) {
+        wasm_global *global = wasm_vec_append(&module->globals);
+        wasm_init_global(global);
+
+        // type
+        global->type = wasm_read_leb_u32(reader);
+
+        // mutablility
+        unsigned char c;
+        wasm_read(reader, &c, 1);
+        if (c > 1) {
+          fprintf(stderr, "Level of mutability not supported (%u)", c);
+          return false;
+        }
+        global->is_mutable = c == 1;
+
+        // initializer
+        if (!wasm_parse_expr(reader, &global->initializer)) {
+          return false;
+        }
+      }
+    } break;
+
+    // exports
+    case 7: {
+      uint32_t export_count = wasm_read_leb_u32(reader);
+
+      for (size_t i = 0; i < export_count; i++) {
+        wasm_export *export = wasm_vec_append(&module->exports);
+
+        // name
+        if (!wasm_read_string(reader, &export->name)) {
+          fprintf(stderr, "Error reading export name.\n");
+          return false;
+        }
+
+        // export description
+        unsigned char c;
+        if (!wasm_read(reader, &c, 1)) {
+          fprintf(stderr, "Error reading export description.\n");
+          return false;
+        }
+
+        if (c > 4) {
+          switch (c) {
+          case 0:
+            export->type = wasm_export_func;
+            break;
+          case 1:
+            export->type = wasm_export_table;
+            break;
+          case 2:
+            export->type = wasm_export_mem;
+            break;
+          case 3:
+            export->type = wasm_export_global;
+            break;
+          default:
+            fprintf(stderr, "Invalid export description found.\n");
+            return false;
+          }
+        }
+
+        // export index
+        export->idx = wasm_read_leb_u32(reader);
+      }
+    } break;
+
     case 2:  // import
-    case 3:  // func
     case 4:  // table
     case 5:  // mem
-    case 6:  // global
-    case 7:  // export
     case 8:  // start
     case 9:  // elem
     case 10: // code
@@ -188,6 +305,9 @@ wasm_module *wasm_load_module(wasm_reader *reader) {
   // handle deleting partially laoded modules.
   wasm_module *module = wasm_alloc(wasm_module);
   wasm_vec_init(&module->function_types, wasm_function_type);
+  wasm_vec_init(&module->funcs, wasm_typeidx);
+  wasm_vec_init(&module->globals, wasm_global);
+  wasm_vec_init(&module->exports, wasm_export);
 
   if (wasm_load_module_sections(reader, module)) {
     return module;
