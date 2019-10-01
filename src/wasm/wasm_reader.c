@@ -61,22 +61,44 @@ _Bool wasm_seek(wasm_reader *reader, size_t amount) {
 // XXX: handle max
 // XXX: check if unsigned char is required in other places
 uint32_t wasm_read_leb_u32(wasm_reader *reader) {
-  assert(reader);
+  uint32_t out;
+  wasm_read_leb_u32_2(reader, &out);
+  return out;
+}
 
+bool wasm_read_leb_u32_2(wasm_reader *reader, uint32_t *out) {
   uint32_t result = 0;
+
+  // We set it to 128 initially so the loop doesn't end immediately.
   unsigned char c = 128;
 
   // Here we check if the last bit is 1 (& 128).
   // Per spec it has at most ceil(32 / 7) = 5 bytes.
   for (int i = 0; c & 128 && i < 5; i++) {
-    if (!wasm_read(reader, &c, 1)) {
-      // XXX: Add error handling.
-      abort();
+    if (!wasm_read_obj(reader, &c)) {
+      return false;
     }
+
+    // Input:
+    // Byte 0: 1aaaaaaa
+    // Byte 1: 1bbbbbbb
+    // Byte 2: 1ccccccc
+    // Byte 3: 1ddddddd
+    // Byte 4: xxxxeeee
+    //
+    // Output:
+    // <            32 bits           >
+    // eeeedddddddcccccccbbbbbbbaaaaaaa
+    //
+    // => xxxx needs to be 0
+    if (i == 4 && c & (1 << 7 | 1 << 6 | 1 << 5 | 1 << 4)) {
+      return false;
+    }
+
     result = result + ((uint32_t)(c & 127) << (i * 7));
   }
 
-  return result;
+  return *out = result, true;
 }
 
 bool wasm_read_f32(wasm_reader *reader, float *out) {

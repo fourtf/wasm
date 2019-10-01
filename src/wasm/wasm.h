@@ -9,6 +9,7 @@
 // XXX: since there is only 4 values it might be worth considering using a char
 // and #defines instead.
 enum wasm_valtype {
+  wasm_valtype_error,
   wasm_valtype_i32,
   wasm_valtype_i64,
   wasm_valtype_f32,
@@ -44,6 +45,17 @@ typedef struct {
   uint32_t idx;
 } wasm_export;
 
+typedef struct {
+  uint32_t n;
+  enum wasm_valtype type;
+} wasm_locals;
+
+typedef struct {
+  // Storing `wasm_locals`.
+  wasm_vec locals;
+  wasm_expr expr;
+} wasm_code;
+
 // void wasm_init_function_type_params(wasm_function_type *type, size_t
 // param_count);
 void wasm_release_function_type(wasm_function_type *type);
@@ -65,6 +77,8 @@ typedef struct {
   wasm_vec globals;
   // Storing `wasm_export`.
   wasm_vec exports;
+  // Storing `wasm_code`.
+  wasm_vec codes;
 } wasm_module;
 
 // A wasm program is called a "module". It contains sections similar to how an
@@ -72,3 +86,5 @@ typedef struct {
 wasm_module *wasm_load_module(wasm_reader *reader);
 wasm_module *wasm_load_module_from_file(const char *file_name);
 void wasm_free_module(wasm_module *module);
+
+void wasm_print_module(wasm_module *module);

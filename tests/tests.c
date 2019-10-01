@@ -91,11 +91,8 @@ void test_emscripten_file_1() {
     MUST_EQUAL(wasm_vec_size(&module->function_types), 2);
     MUST_EQUAL(wasm_vec_size(&module->funcs), 2);
     MUST_EQUAL(wasm_vec_size(&module->globals), 1);
-
-    // Already put those here for the future:
-    // MUST_EQUAL(wasm_vec_size(&module->exports), 2);
+    MUST_EQUAL(wasm_vec_size(&module->exports), 2);
   }
-
   wasm_free_module(module);
 }
 

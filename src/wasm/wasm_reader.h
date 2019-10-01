@@ -23,11 +23,12 @@ void wasm_init_memory_reader(wasm_reader *reader, const void *data,
 // Returns true on success, false on failure.
 bool wasm_read(wasm_reader *, void *buffer, size_t amount);
 bool wasm_seek(wasm_reader *, size_t amount);
+#define wasm_read_obj(reader, ptr) wasm_read(reader, ptr, sizeof(*ptr))
 
-// leb128 encoded number.
-// XXX: Not sure how errors should be handled. Right now there is two different
-// ways.
 uint32_t wasm_read_leb_u32(wasm_reader *reader);
+
+// Reads a leb128 encoded number.
+bool wasm_read_leb_u32_2(wasm_reader *reader, uint32_t *out);
 
 // Little endian raw floats.
 bool wasm_read_f32(wasm_reader *reader, float *out);

@@ -57,4 +57,6 @@ void wasm_vec_for_each(wasm_vec *vec, void (*func)(void *)) {
   }
 }
 
-size_t wasm_vec_size(wasm_vec *vec) { return vec->end - vec->start; }
+size_t wasm_vec_size(wasm_vec *vec) {
+  return (vec->end - vec->start) / vec->item_size;
+}
